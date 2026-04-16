@@ -359,17 +359,36 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Responsive */
+/* Responsive */
   @media (max-width: 900px) {
     .app {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: auto auto; 
       height: auto;
       min-height: 100vh;
     }
-    .preview-pane { padding: 16px; }
-    .controls-pane { border-left: none; border-top: 1px solid var(--border); }
-    body { overflow: auto; }
+    
+    .preview-pane { 
+      padding: 16px; 
+    }
+    
+    /* Добавлено: заставляем превью подстраиваться под узкий экран */
+    .preview-frame {
+      height: auto; 
+      width: 100%;  
+      max-width: 400px; 
+      max-height: 65vh; 
+    }
+
+    .controls-pane { 
+      border-left: none; 
+      border-top: 1px solid var(--border); 
+      overflow: visible; 
+    }
+    
+    body { 
+      overflow: auto; 
+    }
   }
 </style>
 </head>
