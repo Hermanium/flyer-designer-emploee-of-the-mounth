@@ -713,14 +713,138 @@ function wrapText(c, text, maxWidth) {
 
 // PDF Generation logic continues...
 async function generatePDF() {
-  if (!state.photoImage) { showToast('Загрузите фото', 'error'); return; }
+  if (!state.photoImage) {
+    showToast('Сначала загрузите фотографию', 'error');
+    return;
+  }
+
+  const origLabel = downloadBtn.innerHTML;
   downloadBtn.disabled = true;
+  downloadBtn.innerHTML = '<span class="spinner"></span>Создание PDF...';
+
   try {
-    // Вставьте здесь ваш вызов PDFKit как в оригинале
-    showToast('PDF создается...');
-    // ... (код генерации PDF из оригинала)
-  } catch (e) { showToast('Ошибка', 'error'); }
-  finally { downloadBtn.disabled = false; }
+    // Load font
+    const fontBuffer = await loadFontBytes();
+
+    // Create document
+    // eslint-disable-next-line no-undef
+    const doc = new PDFDocument({
+      size: [PAGE_W, PAGE_H],
+      margin: 0,
+      info: {
+        Title: `Листовка - ${state.name}`,
+        Creator: 'Dalli HR Flyer Designer',
+      },
+    });
+
+    // eslint-disable-next-line no-undef
+    const stream = doc.pipe(blobStream());
+
+    // Register both font weights
+    doc.registerFont('FlyerBold', fontBuffer.bold);
+    doc.registerFont('FlyerMedium', fontBuffer.medium);
+
+    // --- 1. Background: dark navy linear gradient (RGB) ---
+    const bgGrad = doc.linearGradient(532, 0, 217, 914);
+    bgGrad.stop(0, BG_TOP);
+    bgGrad.stop(1, BG_BOTTOM);
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill(bgGrad);
+
+    // Subtle 20% black overlay to match template tone
+    doc.save();
+    doc.fillOpacity(0.2).fillColor('#000000');
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill();
+    doc.restore();
+
+    // --- 2. Blurred star glow (PNG with alpha — PDFKit can't do Gaussian blur natively) ---
+    const starPNG = buildStarGlowPNG();
+    const starBytes = dataURLtoArrayBuffer(starPNG);
+    doc.image(starBytes, 0, 0, { width: PAGE_W, height: PAGE_H });
+
+    // --- 3. Photo clipped to circle (JPEG + vector clip path) ---
+    const photoJPEG = buildPhotoJPEG();
+    const photoBytes = dataURLtoArrayBuffer(photoJPEG);
+    doc.save();
+    doc.circle(CIRCLE_CX, CIRCLE_CY, CIRCLE_R).clip();
+    doc.image(photoBytes,
+      CIRCLE_CX - CIRCLE_R,
+      CIRCLE_CY - CIRCLE_R,
+      { width: CIRCLE_R * 2, height: CIRCLE_R * 2 }
+    );
+    doc.restore();
+
+    // --- 4. Name text with gold gradient ---
+    if (state.name && state.name.trim()) {
+      const maxW = PAGE_W - 2 * TEXT_MARGIN;
+      const { size, lines } = fitText(doc, state.name, 'FlyerBold', 42, maxW, 2);
+      const lineH = size * 1.15;
+      const totalH = lines.length * lineH;
+      const startY = NAME_Y + (NAME_H - totalH) / 2;
+
+      const goldGrad = doc.linearGradient(TEXT_MARGIN, 0, PAGE_W - TEXT_MARGIN, 0);
+      goldGrad.stop(0, GOLD_DARK);
+      goldGrad.stop(0.297, GOLD_WARM);
+      goldGrad.stop(0.505, GOLD_LIGHT);
+      goldGrad.stop(0.707, GOLD_WARM);
+      goldGrad.stop(1, GOLD_DARK);
+
+      doc.fillColor(goldGrad);
+      doc.font('FlyerBold').fontSize(size);
+      lines.forEach((line, i) => {
+        const w = doc.widthOfString(line);
+        doc.text(line, (PAGE_W - w) / 2, startY + i * lineH, { lineBreak: false });
+      });
+    }
+
+    // --- 5. Achievement text ---
+    if (state.achievement && state.achievement.trim()) {
+      const maxW = PAGE_W - 2 * TEXT_MARGIN;
+      const { size, lines } = fitText(doc, state.achievement, 'FlyerMedium', 30, maxW, 3);
+      const lineH = size * 1.15;
+      const totalH = lines.length * lineH;
+      const startY = ACHIEVE_Y + (ACHIEVE_H - totalH) / 2;
+
+      const goldGrad2 = doc.linearGradient(TEXT_MARGIN, 0, PAGE_W - TEXT_MARGIN, 0);
+      goldGrad2.stop(0, GOLD_DARK);
+      goldGrad2.stop(0.297, GOLD_WARM);
+      goldGrad2.stop(0.505, GOLD_LIGHT);
+      goldGrad2.stop(0.707, GOLD_WARM);
+      goldGrad2.stop(1, GOLD_DARK);
+
+      doc.fillColor(goldGrad2);
+      doc.font('FlyerMedium').fontSize(size);
+      lines.forEach((line, i) => {
+        const w = doc.widthOfString(line);
+        doc.text(line, (PAGE_W - w) / 2, startY + i * lineH, { lineBreak: false });
+      });
+    }
+
+    // Finalize
+    doc.end();
+    const blob = await new Promise((resolve, reject) => {
+      stream.on('finish', () => resolve(stream.toBlob('application/pdf')));
+      stream.on('error', reject);
+    });
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = (state.name || 'flyer').replace(/[^\p{L}\p{N}\s-]+/gu, '').trim().replace(/\s+/g, '_') || 'flyer';
+    a.download = `${safeName}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showToast('PDF создан и загружен');
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка при создании PDF: ' + (err.message || err), 'error', 6000);
+  } finally {
+    downloadBtn.disabled = false;
+    downloadBtn.innerHTML = origLabel;
+  }
 }
 
 downloadBtn.addEventListener('click', generatePDF);
