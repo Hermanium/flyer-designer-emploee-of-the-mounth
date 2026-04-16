@@ -60,15 +60,18 @@
     padding: 32px;
     background:
       radial-gradient(ellipse at top, #152943 0%, var(--bg) 70%);
-    overflow: auto;
+    overflow: hidden;
     position: relative;
+    min-height: 0;
   }
 
   .preview-inner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 18px;
+    gap: 12px;
+    max-height: 100%;
+    min-height: 0;
   }
 
   .preview-frame {
@@ -78,8 +81,13 @@
       0 0 0 1px rgba(255,255,255,0.06);
     border-radius: 4px;
     overflow: hidden;
-    /* Render width is dynamic; aspect is fixed */
+    /* Fit inside the pane: preserve A4 aspect, never taller than available height,
+       never wider than available width. */
     aspect-ratio: 612 / 859;
+    max-height: 100%;
+    max-width: 100%;
+    height: calc(100vh - 100px);
+    width: auto;
     background: #000;
     cursor: grab;
     user-select: none;
@@ -761,28 +769,34 @@ function makeGoldGradient(c, x1, x2, y) {
   return g;
 }
 
-// Draw text, shrink-to-fit if too wide, wrap if multiline
+// Draw text, wrap to multiple lines, shrink only if even wrapping can't fit
 function drawGoldText(c, text, yTop, boxH, initialFontSize, bold) {
   if (!text || !text.trim()) return;
   const maxWidth = PAGE_W - 2 * TEXT_MARGIN;
   const fontFamily = bold ? 'FlyerBold, sans-serif' : 'FlyerMedium, sans-serif';
+  // Max lines: name (bold) wraps to 2, achievement (medium) wraps to 3
+  const maxLines = bold ? 2 : 3;
 
-  // Wrap by words, shrink until fits in box
+  // Find the largest font size where (a) we fit within maxLines and
+  // (b) each line fits horizontally. Vertical overflow into neighbouring
+  // space is allowed — better than making the text tiny.
   let fontSize = initialFontSize;
   let lines;
   const minSize = 16;
   while (fontSize >= minSize) {
     c.font = `${fontSize}px ${fontFamily}`;
     lines = wrapText(c, text, maxWidth);
-    const totalH = lines.length * fontSize * 1.15;
-    if (totalH <= boxH && lines.every(l => c.measureText(l).width <= maxWidth)) break;
+    if (lines.length <= maxLines && lines.every(l => c.measureText(l).width <= maxWidth)) break;
     fontSize -= 1;
   }
   c.font = `${fontSize}px ${fontFamily}`;
 
   const lineHeight = fontSize * 1.15;
   const totalH = lines.length * lineHeight;
-  const startY = yTop + (boxH - totalH) / 2 + lineHeight * 0.8;
+  // Vertically centre the text block around the centre of the original box,
+  // letting it expand upward/downward when there are 2+ lines.
+  const centerY = yTop + boxH / 2;
+  const startY = centerY - totalH / 2 + lineHeight * 0.8;
 
   c.textAlign = 'center';
   c.textBaseline = 'alphabetic';
