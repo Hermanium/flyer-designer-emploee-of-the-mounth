@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Конструктор листовки сотрудника · Dalli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @font-face {
+    font-family: 'FlyerBold';
+    src: url('fonts/flyer-font-bold.ttf') format('truetype');
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'FlyerMedium';
+    src: url('fonts/flyer-font-medium.ttf') format('truetype');
+    font-display: swap;
+  }
+  :root {
+    --bg: #0a1422;
+    --panel: #13233c;
+    --panel-2: #1a2d4a;
+    --border: #25395a;
+    --text: #e8eef7;
+    --muted: #8ea1bf;
+    --cyan: #00cff2;
+    --cyan-dim: rgba(0, 207, 242, 0.15);
+    --gold-1: #98804F;
+    --gold-2: #F8D181;
+    --gold-3: #FFE7B6;
+    --danger: #ff6b6b;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    height: 100vh;
+    gap: 0;
+  }
+
+  /* ------ LEFT: Preview ------ */
+  .preview-pane {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background:
+      radial-gradient(ellipse at top, #152943 0%, var(--bg) 70%);
+    overflow: auto;
+    position: relative;
+  }
+
+  .preview-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .preview-frame {
+    position: relative;
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    /* Render width is dynamic; aspect is fixed */
+    aspect-ratio: 612 / 859;
+    background: #000;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+  .preview-frame.dragging { cursor: grabbing; }
+  .preview-frame.no-photo { cursor: default; }
+
+  .preview-frame canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .preview-caption {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .hint-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+  .hint-overlay.hidden { display: none; }
+  .hint-overlay .pill {
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    padding: 10px 18px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* ------ RIGHT: Controls ------ */
+  .controls-pane {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .section {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-of-type { border-bottom: none; }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title .num {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  label.field {
+    display: block;
+    margin-bottom: 14px;
+  }
+  label.field:last-child { margin-bottom: 0; }
+
+  .field-label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  input[type="text"], textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 12px;
+    transition: border-color 0.15s;
+    resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--cyan);
+  }
+  textarea { min-height: 60px; }
+
+  /* File input custom */
+  .file-upload {
+    display: block;
+    padding: 18px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--muted);
+    font-size: 13px;
+    background: var(--bg);
+  }
+  .file-upload:hover {
+    border-color: var(--cyan);
+    color: var(--text);
+    background: var(--panel-2);
+  }
+  .file-upload input { display: none; }
+  .file-upload .icon {
+    font-size: 22px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .file-upload .filename {
+    color: var(--text);
+    font-weight: 500;
+    word-break: break-all;
+  }
+
+  /* Slider */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: var(--cyan);
+  }
+  .slider-value {
+    min-width: 42px;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* Buttons */
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 14px;
+    transition: all 0.15s;
+  }
+
+  button.secondary {
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+
+  .footer {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--panel-2);
+    margin-top: auto;
+    position: sticky;
+    bottom: 0;
+  }
+
+  button.primary {
+    width: 100%;
+    background: linear-gradient(90deg, #98804F 0%, #F8D181 30%, #FFE7B6 50%, #F8D181 70%, #98804F 100%);
+    color: #2a1d00;
+    font-weight: 700;
+    padding: 14px;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px rgba(248, 209, 129, 0.25);
+  }
+  button.primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(248, 209, 129, 0.35);
+  }
+  button.primary:disabled {
+    filter: grayscale(0.5) brightness(0.7);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .footer .note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    transition: transform 0.3s ease;
+    z-index: 100;
+    pointer-events: none;
+    max-width: 80%;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { border-color: var(--danger); }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+      height: auto;
+      min-height: 100vh;
+    }
+    .preview-pane { padding: 16px; }
+    .controls-pane { border-left: none; border-top: 1px solid var(--border); }
+    body { overflow: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== PREVIEW ===== -->
+  <div class="preview-pane">
+    <div class="preview-inner">
+      <div class="preview-frame no-photo" id="previewFrame">
+        <canvas id="previewCanvas" width="1224" height="1718"></canvas>
+        <div class="hint-overlay" id="hintOverlay">
+          <div class="pill">Загрузите фото сотрудника справа →</div>
+        </div>
+      </div>
+      <div class="preview-caption">Предпросмотр · 216 × 303 мм</div>
+    </div>
+  </div>
+
+  <!-- ===== CONTROLS ===== -->
+  <div class="controls-pane">
+    <div class="header">
+      <h1>Конструктор листовки</h1>
+      <p>Загрузите фото, введите имя и достижение, скачайте PDF для печати.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="num">1</span>Фото сотрудника</div>
+
+      <label class="file-upload" id="fileUploadLabel">
+        <input type="file" id="photoInput" accept="image/*" />
+        <span class="icon">⇪</span>
+        <span id="fileStatus">Нажмите, чтобы выбрать изображение</span>
+      </label>
+
+      <div style="margin-top: 14px;" id="photoControls">
+        <label class="field">
+          <span class="field-label">Масштаб фото</span>
+          <div class="slider-row">
+            <input type="range" id="scaleSlider" min="1" max="4" step="0.01" value="1" disabled />
+            <span class="slider-value" id="scaleValue">100%</span>
+          </div>
+        </label>
+        <button class="secondary" id="resetPhotoBtn" disabled style="width: 100%;">Центрировать фото</button>
+        <p style="margin: 10px 0 0; font-size: 11px; color: var(--muted); line-height: 1.5;">
+          Перетащите фото курсором в круге, чтобы выбрать нужный фрагмент.
+        </p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="num">2</span>Имя сотрудника</div>
+      <label class="field">
+        <input type="text" id="nameInput" placeholder="Иван Иванов" value="Семён Окороков" maxlength="40" />
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="num">3</span>Достижение</div>
+      <label class="field">
+        <textarea id="achievementInput" placeholder="За что награждён сотрудник" maxlength="140">Самая крутая машина</textarea>
+      </label>
+    </div>
+
+    <div class="footer">
+      <button class="primary" id="downloadBtn">Скачать PDF для печати</button>
+      <div class="note">216×303 мм · готово к печати</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- PDFKit & blob-stream (browser builds) -->
+<script src="pdfkit.standalone.js"></script>
+<script src="blob-stream.js"></script>
+
+<script>
+/* ================================================================
+   FLYER DESIGNER - Dalli HR
+   PDF: 216x303 mm (612 x 859 pt), single-file, no external deps besides PDFKit
+   ================================================================ */
+
+
+// ====== Layout constants (in PDF points; 1 pt = 1/72 in) ======
+const PAGE_W = 612.008;
+const PAGE_H = 859.008;
+
+// Photo circle - inscribed in the original 427x427 image area
+const CIRCLE_CX = 306.003;
+const CIRCLE_CY = 305.542;
+const CIRCLE_R  = 213.5;   // half of 427
+
+// Text blocks
+const NAME_Y      = 575;   // top of name text box
+const NAME_H      = 46;
+const ACHIEVE_Y   = 655;   // top of achievement box
+const ACHIEVE_H   = 100;
+const TEXT_MARGIN = 56;    // side margin for text
+
+// Canvas preview scale (2x DPR)
+const PREVIEW_SCALE = 2;
+
+// ====== Brand colors (RGB hex — PDFKit accepts these directly in gradients) ======
+const BG_TOP    = '#020A1A';
+const BG_BOTTOM = '#012A47';
+const CYAN      = '#00CFF2';
+const GOLD_DARK  = '#98804F';
+const GOLD_WARM  = '#F8D181';
+const GOLD_LIGHT = '#FFE7B6';
+
+// Blur radius for the star glow (px on both preview canvas and export canvas)
+const STAR_BLUR_PX = 32;
+
+// ====== State ======
+const state = {
+  photoImage: null,      // HTMLImageElement
+  photoOffsetX: 0,       // in PDF pt units (offset from circle center)
+  photoOffsetY: 0,
+  photoScale: 1,         // multiplier of "fit circle" base scale
+  photoBaseScale: 1,     // base scale that makes photo cover the circle
+  name: 'Семён Окороков',
+  achievement: 'Самая крутая машина',
+};
+
+// ====== DOM refs ======
+const canvas = document.getElementById('previewCanvas');
+const ctx = canvas.getContext('2d');
+const previewFrame = document.getElementById('previewFrame');
+const hintOverlay = document.getElementById('hintOverlay');
+const photoInput = document.getElementById('photoInput');
+const fileStatus = document.getElementById('fileStatus');
+const scaleSlider = document.getElementById('scaleSlider');
+const scaleValue = document.getElementById('scaleValue');
+const resetBtn = document.getElementById('resetPhotoBtn');
+const nameInput = document.getElementById('nameInput');
+const achievementInput = document.getElementById('achievementInput');
+const downloadBtn = document.getElementById('downloadBtn');
+const toast = document.getElementById('toast');
+
+// ====== Helpers ======
+function showToast(msg, type = 'info', ms = 3000) {
+  toast.textContent = msg;
+  toast.className = 'toast show' + (type === 'error' ? ' error' : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { toast.className = 'toast'; }, ms);
+}
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+// Convert canvas-pixel coordinates to PDF-pt coordinates
+function canvasToPt(cx, cy) {
+  const r = previewFrame.getBoundingClientRect();
+  return {
+    x: (cx - r.left) * (PAGE_W / r.width),
+    y: (cy - r.top)  * (PAGE_H / r.height),
+  };
+}
+
+// ====== Photo handling ======
+photoInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    showToast('Файл слишком большой (макс. 20 МБ)', 'error');
+    return;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    state.photoImage = img;
+    // Base "cover" scale: shorter side matches circle diameter.
+    // We add a 15% margin so BOTH axes always have some movement room,
+    // regardless of whether the photo is portrait or landscape.
+    const circleDiameter = CIRCLE_R * 2;
+    const coverScale = Math.max(circleDiameter / img.width, circleDiameter / img.height);
+    state.photoBaseScale = coverScale * 1.15;
+    state.photoOffsetX = 0;
+    state.photoOffsetY = 0;
+    state.photoScale = 1;
+    scaleSlider.value = 1;
+    scaleValue.textContent = '100%';
+    scaleSlider.disabled = false;
+    resetBtn.disabled = false;
+    fileStatus.textContent = file.name;
+    fileStatus.className = 'filename';
+    previewFrame.classList.remove('no-photo');
+    hintOverlay.classList.add('hidden');
+    draw();
+  };
+  img.onerror = () => showToast('Не удалось открыть изображение', 'error');
+  img.src = URL.createObjectURL(file);
+});
+
+scaleSlider.addEventListener('input', (e) => {
+  state.photoScale = parseFloat(e.target.value);
+  scaleValue.textContent = Math.round(state.photoScale * 100) + '%';
+  draw();
+});
+
+resetBtn.addEventListener('click', () => {
+  state.photoOffsetX = 0;
+  state.photoOffsetY = 0;
+  state.photoScale = 1;
+  scaleSlider.value = 1;
+  scaleValue.textContent = '100%';
+  draw();
+});
+
+// Drag inside the photo circle
+let dragging = false;
+let dragStart = null;
+function onPointerDown(e) {
+  if (!state.photoImage) return;
+  const pt = canvasToPt(e.clientX, e.clientY);
+  // Check if inside circle
+  const dx = pt.x - CIRCLE_CX;
+  const dy = pt.y - CIRCLE_CY;
+  if (dx*dx + dy*dy > CIRCLE_R*CIRCLE_R) return;
+  dragging = true;
+  dragStart = {
+    x: e.clientX, y: e.clientY,
+    originX: state.photoOffsetX, originY: state.photoOffsetY,
+  };
+  previewFrame.classList.add('dragging');
+  e.preventDefault();
+}
+function onPointerMove(e) {
+  if (!dragging) return;
+  const r = previewFrame.getBoundingClientRect();
+  const scale = PAGE_W / r.width;
+  const dx = (e.clientX - dragStart.x) * scale;
+  const dy = (e.clientY - dragStart.y) * scale;
+  state.photoOffsetX = dragStart.originX + dx;
+  state.photoOffsetY = dragStart.originY + dy;
+  // Clamp so photo still covers the circle
+  clampPhotoOffset();
+  draw();
+}
+function onPointerUp() {
+  dragging = false;
+  previewFrame.classList.remove('dragging');
+}
+function clampPhotoOffset() {
+  if (!state.photoImage) return;
+  const img = state.photoImage;
+  const s = state.photoBaseScale * state.photoScale;
+  const drawnW = img.width * s;
+  const drawnH = img.height * s;
+  // Photo is positioned so its center sits at (CIRCLE_CX + offsetX, CIRCLE_CY + offsetY).
+  // For the photo to cover the circle fully, the photo's edges must be outside the circle.
+  // Simplify: clamp offset so that (drawnW/2 - |offsetX|) >= CIRCLE_R etc.
+  const maxX = Math.max(0, drawnW / 2 - CIRCLE_R);
+  const maxY = Math.max(0, drawnH / 2 - CIRCLE_R);
+  state.photoOffsetX = clamp(state.photoOffsetX, -maxX, maxX);
+  state.photoOffsetY = clamp(state.photoOffsetY, -maxY, maxY);
+}
+
+previewFrame.addEventListener('mousedown', onPointerDown);
+window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+// Touch
+previewFrame.addEventListener('touchstart', (e) => {
+  if (e.touches.length) onPointerDown(e.touches[0]);
+}, { passive: false });
+window.addEventListener('touchmove', (e) => {
+  if (e.touches.length) onPointerMove(e.touches[0]);
+}, { passive: false });
+window.addEventListener('touchend', onPointerUp);
+
+// Wheel to zoom
+previewFrame.addEventListener('wheel', (e) => {
+  if (!state.photoImage) return;
+  e.preventDefault();
+  const delta = -e.deltaY * 0.002;
+  const newScale = clamp(state.photoScale + delta, 1, 4);
+  state.photoScale = newScale;
+  scaleSlider.value = newScale;
+  scaleValue.textContent = Math.round(newScale * 100) + '%';
+  clampPhotoOffset();
+  draw();
+}, { passive: false });
+
+// Text inputs
+nameInput.addEventListener('input', (e) => { state.name = e.target.value; draw(); });
+achievementInput.addEventListener('input', (e) => { state.achievement = e.target.value; draw(); });
+
+// ====== CANVAS RENDERING (preview) ======
+// Render at PREVIEW_SCALE resolution, coordinate system in PDF-pt
+// Everything below uses the transform (PREVIEW_SCALE x) to match PDF pt
+
+function draw() {
+  const W = PAGE_W, H = PAGE_H;
+  canvas.width = Math.round(W * PREVIEW_SCALE);
+  canvas.height = Math.round(H * PREVIEW_SCALE);
+  const c = canvas.getContext('2d');
+  c.setTransform(PREVIEW_SCALE, 0, 0, PREVIEW_SCALE, 0, 0);
+  c.clearRect(0, 0, W, H);
+
+  // 1. Dark navy background gradient
+  const bg = c.createLinearGradient(532, 0, 217, 914);
+  bg.addColorStop(0, '#020A1A');
+  bg.addColorStop(1, '#012A47');
+  c.fillStyle = bg;
+  c.fillRect(0, 0, W, H);
+  // Subtle 20% dark overlay (matches original)
+  c.fillStyle = 'rgba(0,0,0,0.2)';
+  c.fillRect(0, 0, W, H);
+
+  // 2. Cyan star glow (blurred)
+  c.save();
+  c.filter = `blur(${STAR_BLUR_PX * 0.75}px)`;  // preview uses slightly less to keep some shape visible at preview size
+  c.beginPath();
+  const starPath = [
+    [306.003, 63.057], [375.72, 166.645], [513.779, 134.079],
+    [474.315, 248.009], [599.842, 305.542], [474.315, 363.075],
+    [513.779, 477.005], [375.72, 444.439], [306.003, 548.027],
+    [236.286, 444.439], [98.228, 477.005], [137.69, 363.075],
+    [12.164, 305.542], [137.69, 248.009], [98.228, 134.079],
+    [236.286, 166.645],
+  ];
+  c.moveTo(starPath[0][0], starPath[0][1]);
+  for (let i = 1; i < starPath.length; i++) c.lineTo(starPath[i][0], starPath[i][1]);
+  c.closePath();
+  // Radial gradient: strong at center, fades to transparent
+  const starGrad = c.createRadialGradient(
+    CIRCLE_CX, CIRCLE_CY, 0,
+    CIRCLE_CX, CIRCLE_CY, 290
+  );
+  starGrad.addColorStop(0, 'rgba(0, 207, 242, 0.77)');
+  starGrad.addColorStop(0.636, 'rgba(0, 207, 242, 0.77)');
+  starGrad.addColorStop(1, 'rgba(0, 207, 242, 0)');
+  c.fillStyle = starGrad;
+  c.fill();
+  c.restore();
+
+  // 3. Photo in circle
+  if (state.photoImage) {
+    c.save();
+    c.beginPath();
+    c.arc(CIRCLE_CX, CIRCLE_CY, CIRCLE_R, 0, Math.PI * 2);
+    c.clip();
+
+    const img = state.photoImage;
+    const s = state.photoBaseScale * state.photoScale;
+    const drawnW = img.width * s;
+    const drawnH = img.height * s;
+    const x = CIRCLE_CX - drawnW / 2 + state.photoOffsetX;
+    const y = CIRCLE_CY - drawnH / 2 + state.photoOffsetY;
+    c.drawImage(img, x, y, drawnW, drawnH);
+    c.restore();
+
+    // Thin white stroke around circle for polish
+    c.save();
+    c.strokeStyle = 'rgba(255,255,255,0.06)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.arc(CIRCLE_CX, CIRCLE_CY, CIRCLE_R, 0, Math.PI * 2);
+    c.stroke();
+    c.restore();
+  } else {
+    // Empty placeholder circle
+    c.save();
+    c.beginPath();
+    c.arc(CIRCLE_CX, CIRCLE_CY, CIRCLE_R, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    c.fill();
+    c.setLineDash([6, 6]);
+    c.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    c.lineWidth = 2;
+    c.stroke();
+    c.restore();
+    // Hint text
+    c.save();
+    c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    c.font = '20px Manrope, sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('Место для фото', CIRCLE_CX, CIRCLE_CY);
+    c.restore();
+  }
+
+  // 4. Name text with gold gradient
+  drawGoldText(c, state.name, NAME_Y, NAME_H, 42, true);
+
+  // 5. Achievement text
+  drawGoldText(c, state.achievement, ACHIEVE_Y, ACHIEVE_H, 30, false);
+}
+
+function makeGoldGradient(c, x1, x2, y) {
+  const g = c.createLinearGradient(x1, y, x2, y);
+  g.addColorStop(0, '#98804F');
+  g.addColorStop(0.297, '#F8D181');
+  g.addColorStop(0.505, '#FFE7B6');
+  g.addColorStop(0.707, '#F8D181');
+  g.addColorStop(1, '#98804F');
+  return g;
+}
+
+// Draw text, shrink-to-fit if too wide, wrap if multiline
+function drawGoldText(c, text, yTop, boxH, initialFontSize, bold) {
+  if (!text || !text.trim()) return;
+  const maxWidth = PAGE_W - 2 * TEXT_MARGIN;
+  const fontFamily = bold ? 'FlyerBold, sans-serif' : 'FlyerMedium, sans-serif';
+
+  // Wrap by words, shrink until fits in box
+  let fontSize = initialFontSize;
+  let lines;
+  const minSize = 16;
+  while (fontSize >= minSize) {
+    c.font = `${fontSize}px ${fontFamily}`;
+    lines = wrapText(c, text, maxWidth);
+    const totalH = lines.length * fontSize * 1.15;
+    if (totalH <= boxH && lines.every(l => c.measureText(l).width <= maxWidth)) break;
+    fontSize -= 1;
+  }
+  c.font = `${fontSize}px ${fontFamily}`;
+
+  const lineHeight = fontSize * 1.15;
+  const totalH = lines.length * lineHeight;
+  const startY = yTop + (boxH - totalH) / 2 + lineHeight * 0.8;
+
+  c.textAlign = 'center';
+  c.textBaseline = 'alphabetic';
+  c.fillStyle = makeGoldGradient(c, TEXT_MARGIN, PAGE_W - TEXT_MARGIN, startY);
+  lines.forEach((line, i) => {
+    c.fillText(line, PAGE_W / 2, startY + i * lineHeight);
+  });
+}
+
+function wrapText(c, text, maxWidth) {
+  const words = text.trim().split(/\s+/);
+  const lines = [];
+  let current = '';
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w;
+    if (c.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// ====== PDF GENERATION ======
+let fontBytesCache = null;
+const FONT_URLS = {
+  bold:   'fonts/flyer-font-bold.ttf',
+  medium: 'fonts/flyer-font-medium.ttf',
+};
+
+// Fetch both TTF files from the repo's /fonts folder (cached after first load).
+async function loadFontBytes() {
+  if (fontBytesCache) return fontBytesCache;
+  const fetchOne = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Не удалось загрузить шрифт (${url}): HTTP ${res.status}. Проверьте, что файл лежит в папке /fonts/ рядом с index.html.`);
+    return res.arrayBuffer();
+  };
+  const [bold, medium] = await Promise.all([fetchOne(FONT_URLS.bold), fetchOne(FONT_URLS.medium)]);
+  fontBytesCache = { bold, medium };
+  return fontBytesCache;
+}
+
+// Convert data URL to ArrayBuffer (PDFKit accepts Buffer/ArrayBuffer/dataURL,
+// NOT plain Uint8Array — use the underlying .buffer).
+function dataURLtoArrayBuffer(dataURL) {
+  const base64 = dataURL.split(',')[1];
+  const binary = atob(base64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return arr.buffer;
+}
+
+// Build a JPEG of the photo, sized to cover the circle's bounding box (square).
+// The photo is not pre-clipped — PDFKit will apply the circular clip itself,
+// which keeps the raster rectangular (JPEG is more reliable than PNG+alpha for print).
+// Rendered at 300 DPI.
+function buildPhotoJPEG() {
+  if (!state.photoImage) return null;
+  const DPI = 300;
+  const sidePt = CIRCLE_R * 2;                    // 427 pt
+  const sidePx = Math.round(sidePt * DPI / 72);   // ~1779 px
+  const cv = document.createElement('canvas');
+  cv.width = sidePx;
+  cv.height = sidePx;
+  const cc = cv.getContext('2d');
+  // Navy fill so any unexposed edges blend with the template background
+  cc.fillStyle = '#020A1A';
+  cc.fillRect(0, 0, sidePx, sidePx);
+  // Work in pt coordinates
+  const ptToPx = sidePx / sidePt;
+  cc.scale(ptToPx, ptToPx);
+  const img = state.photoImage;
+  const s = state.photoBaseScale * state.photoScale;
+  const drawnW = img.width * s;
+  const drawnH = img.height * s;
+  const x = CIRCLE_R - drawnW / 2 + state.photoOffsetX;
+  const y = CIRCLE_R - drawnH / 2 + state.photoOffsetY;
+  cc.drawImage(img, x, y, drawnW, drawnH);
+  return cv.toDataURL('image/jpeg', 0.95);
+}
+
+// Build a transparent PNG of the blurred star glow (only the glow; transparent background).
+// Rendered at 240 DPI which is ample for a soft glow.
+function buildStarGlowPNG() {
+  const DPI = 240;
+  const W = Math.round(PAGE_W * DPI / 72);
+  const H = Math.round(PAGE_H * DPI / 72);
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const cc = cv.getContext('2d');
+  const ptToPx = W / PAGE_W;
+  cc.scale(ptToPx, ptToPx);
+
+  // Apply Gaussian blur via canvas filter - matches the SVG's feGaussianBlur
+  cc.filter = `blur(${STAR_BLUR_PX}px)`;
+  cc.beginPath();
+  const starPts = [
+    [306.003, 63.057], [375.72, 166.645], [513.779, 134.079],
+    [474.315, 248.009], [599.842, 305.542], [474.315, 363.075],
+    [513.779, 477.005], [375.72, 444.439], [306.003, 548.027],
+    [236.286, 444.439], [98.228, 477.005], [137.69, 363.075],
+    [12.164, 305.542], [137.69, 248.009], [98.228, 134.079],
+    [236.286, 166.645],
+  ];
+  cc.moveTo(starPts[0][0], starPts[0][1]);
+  for (let i = 1; i < starPts.length; i++) cc.lineTo(starPts[i][0], starPts[i][1]);
+  cc.closePath();
+  const starGrad = cc.createRadialGradient(
+    CIRCLE_CX, CIRCLE_CY, 0,
+    CIRCLE_CX, CIRCLE_CY, 290
+  );
+  starGrad.addColorStop(0, 'rgba(0, 207, 242, 0.77)');
+  starGrad.addColorStop(0.636, 'rgba(0, 207, 242, 0.77)');
+  starGrad.addColorStop(1, 'rgba(0, 207, 242, 0)');
+  cc.fillStyle = starGrad;
+  cc.fill();
+  return cv.toDataURL('image/png');
+}
+
+// Given a text string, compute font size that fits within maxWidth with word-wrap
+function fitText(doc, text, fontName, initialSize, maxWidth, maxLines) {
+  const minSize = 14;
+  for (let size = initialSize; size >= minSize; size--) {
+    doc.font(fontName).fontSize(size);
+    const lines = wordWrapPDF(doc, text, maxWidth);
+    if (lines.length <= maxLines && lines.every(l => doc.widthOfString(l) <= maxWidth)) {
+      return { size, lines };
+    }
+  }
+  // Last resort
+  doc.font(fontName).fontSize(minSize);
+  return { size: minSize, lines: wordWrapPDF(doc, text, maxWidth) };
+}
+
+function wordWrapPDF(doc, text, maxWidth) {
+  const words = text.trim().split(/\s+/);
+  const lines = [];
+  let current = '';
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w;
+    if (doc.widthOfString(test) > maxWidth && current) {
+      lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+async function generatePDF() {
+  if (!state.photoImage) {
+    showToast('Сначала загрузите фотографию', 'error');
+    return;
+  }
+
+  const origLabel = downloadBtn.innerHTML;
+  downloadBtn.disabled = true;
+  downloadBtn.innerHTML = '<span class="spinner"></span>Создание PDF...';
+
+  try {
+    // Load font
+    const fontBuffer = await loadFontBytes();
+
+    // Create document
+    // eslint-disable-next-line no-undef
+    const doc = new PDFDocument({
+      size: [PAGE_W, PAGE_H],
+      margin: 0,
+      info: {
+        Title: `Листовка - ${state.name}`,
+        Creator: 'Dalli HR Flyer Designer',
+      },
+    });
+
+    // eslint-disable-next-line no-undef
+    const stream = doc.pipe(blobStream());
+
+    // Register both font weights
+    doc.registerFont('FlyerBold', fontBuffer.bold);
+    doc.registerFont('FlyerMedium', fontBuffer.medium);
+
+    // --- 1. Background: dark navy linear gradient (RGB) ---
+    const bgGrad = doc.linearGradient(532, 0, 217, 914);
+    bgGrad.stop(0, BG_TOP);
+    bgGrad.stop(1, BG_BOTTOM);
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill(bgGrad);
+
+    // Subtle 20% black overlay to match template tone
+    doc.save();
+    doc.fillOpacity(0.2).fillColor('#000000');
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill();
+    doc.restore();
+
+    // --- 2. Blurred star glow (PNG with alpha — PDFKit can't do Gaussian blur natively) ---
+    const starPNG = buildStarGlowPNG();
+    const starBytes = dataURLtoArrayBuffer(starPNG);
+    doc.image(starBytes, 0, 0, { width: PAGE_W, height: PAGE_H });
+
+    // --- 3. Photo clipped to circle (JPEG + vector clip path) ---
+    const photoJPEG = buildPhotoJPEG();
+    const photoBytes = dataURLtoArrayBuffer(photoJPEG);
+    doc.save();
+    doc.circle(CIRCLE_CX, CIRCLE_CY, CIRCLE_R).clip();
+    doc.image(photoBytes,
+      CIRCLE_CX - CIRCLE_R,
+      CIRCLE_CY - CIRCLE_R,
+      { width: CIRCLE_R * 2, height: CIRCLE_R * 2 }
+    );
+    doc.restore();
+
+    // --- 4. Name text with gold gradient ---
+    if (state.name && state.name.trim()) {
+      const maxW = PAGE_W - 2 * TEXT_MARGIN;
+      const { size, lines } = fitText(doc, state.name, 'FlyerBold', 42, maxW, 2);
+      const lineH = size * 1.15;
+      const totalH = lines.length * lineH;
+      const startY = NAME_Y + (NAME_H - totalH) / 2;
+
+      const goldGrad = doc.linearGradient(TEXT_MARGIN, 0, PAGE_W - TEXT_MARGIN, 0);
+      goldGrad.stop(0, GOLD_DARK);
+      goldGrad.stop(0.297, GOLD_WARM);
+      goldGrad.stop(0.505, GOLD_LIGHT);
+      goldGrad.stop(0.707, GOLD_WARM);
+      goldGrad.stop(1, GOLD_DARK);
+
+      doc.fillColor(goldGrad);
+      doc.font('FlyerBold').fontSize(size);
+      lines.forEach((line, i) => {
+        const w = doc.widthOfString(line);
+        doc.text(line, (PAGE_W - w) / 2, startY + i * lineH, { lineBreak: false });
+      });
+    }
+
+    // --- 5. Achievement text ---
+    if (state.achievement && state.achievement.trim()) {
+      const maxW = PAGE_W - 2 * TEXT_MARGIN;
+      const { size, lines } = fitText(doc, state.achievement, 'FlyerMedium', 30, maxW, 3);
+      const lineH = size * 1.15;
+      const totalH = lines.length * lineH;
+      const startY = ACHIEVE_Y + (ACHIEVE_H - totalH) / 2;
+
+      const goldGrad2 = doc.linearGradient(TEXT_MARGIN, 0, PAGE_W - TEXT_MARGIN, 0);
+      goldGrad2.stop(0, GOLD_DARK);
+      goldGrad2.stop(0.297, GOLD_WARM);
+      goldGrad2.stop(0.505, GOLD_LIGHT);
+      goldGrad2.stop(0.707, GOLD_WARM);
+      goldGrad2.stop(1, GOLD_DARK);
+
+      doc.fillColor(goldGrad2);
+      doc.font('FlyerMedium').fontSize(size);
+      lines.forEach((line, i) => {
+        const w = doc.widthOfString(line);
+        doc.text(line, (PAGE_W - w) / 2, startY + i * lineH, { lineBreak: false });
+      });
+    }
+
+    // Finalize
+    doc.end();
+    const blob = await new Promise((resolve, reject) => {
+      stream.on('finish', () => resolve(stream.toBlob('application/pdf')));
+      stream.on('error', reject);
+    });
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = (state.name || 'flyer').replace(/[^\p{L}\p{N}\s-]+/gu, '').trim().replace(/\s+/g, '_') || 'flyer';
+    a.download = `${safeName}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showToast('PDF создан и загружен');
+  } catch (err) {
+    console.error(err);
+    showToast('Ошибка при создании PDF: ' + (err.message || err), 'error', 6000);
+  } finally {
+    downloadBtn.disabled = false;
+    downloadBtn.innerHTML = origLabel;
+  }
+}
+
+downloadBtn.addEventListener('click', generatePDF);
+
+// Wait for Manrope/Montserrat to be ready for accurate measurement, then draw
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(draw);
+} else {
+  draw();
+}
+window.addEventListener('resize', draw);
+</script>
+
+</body>
+</html>
